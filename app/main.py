@@ -34,21 +34,20 @@ def ping():
 
 @bottle.post('/start')
 def start():
-    print 'start received'
+    print 'START'
     data = bottle.request.json
 
-    """
-    TODO: If you intend to have a stateful snake AI,
-            initialize your snake state here using the
-            request's data if necessary.
-    """
     myID = data['you']['id']
     gameID = data['game']['id']
     height = data['board']['height']
     width = data['board']['width'] 
 
+    print '-----------------'
     print 'gameID: ', gameID
     print 'myID: ', myID
+    print 'height: ', height
+    print 'width: ', width
+    print '-----------------'
 
     color = "#FBE103"
 
@@ -67,33 +66,93 @@ def packageResponse(direction):
 Eliminates return values that would run us off the board
 '''
 def elimRunoff(headCoords):
-    # headCoords = (x,y)
     print "HEAD COORDS: ", headCoords
     x = headCoords['x']
     y = headCoords['y']
     if x == 0:
         validDirections.remove('left')
+        print 'cant go left'
 
     if x == width-1 :
         validDirections.remove('right')
+        print 'cant go right'
 
     if y == 0:
         validDirections.remove('up')
+        print 'cant go up'
 
     if y == height-1:
         validDirections.remove('down')
+        print 'cant go down'
 
 '''
 TODO
 Eliminates return values that would run us into our own body
 or that of another snake
-'''
-def elimBodyCollide(snokes, yourBody, headCoords):
+
+def elimBodyCollide(headCoords):
     x = headCoords['x']
     y = headCoords['y']
+    
+    niceTypes = ['food', 'empty']
 
-    # check own body first
-    # for {bodyX, bodyY} in yourBody:
+    if x < width-1:
+        type = boardMap[x+1][y]['type']
+        if type not in niceTypes:
+            validDirections.remove('right')
+
+    if y < height-1:
+        type = boardMap[x][y+1]['type']
+        if type not in niceTypes:
+            validDirections.remove('down')
+
+    if x > 0:
+        type = boardMap[x-1][y]['type']
+        if type not in niceTypes:
+            validDirections.remove('left')
+    
+    if y > 0:
+        type = boardMap[x][y-1]['type']
+        if type not in niceTypes:
+            validDirections.remove('up')
+'''
+
+def elimBodyCollide(headCoord, data):
+
+    x = headCoord['x']
+    y = headCoord['y']
+    toCheck = [{'x' : x-1, 'y':y}, {'x' : x+1, 'y':y}, {'x' : x, 'y':y-1}, {'x' : x, 'y':y+1}]
+
+    bodies = data['you']['body']
+    for snake in data['board']['snakes']:
+        bodies.extend(snake['body'])
+    
+    for coord in toCheck:
+        if coord in bodies:
+            toCheck.remove(coord)
+
+    if {'x' : x-1, 'y':y} not in toCheck:
+        if 'left' in validDirections:
+            validDirections.remove('left')
+            print 'cant go left'
+
+    if {'x' : x+1, 'y':y} not in toCheck:
+        if 'right' in validDirections:
+            validDirections.remove('right')
+            print 'cant go right'
+
+    if {'x' : x, 'y':y-1} not in toCheck:
+        if 'up' in validDirections:
+            validDirections.remove('up')
+            print 'cant go up'
+
+    if {'x' : x, 'y':y+1} not in toCheck:
+        if 'down' in validDirections:
+            validDirections.remove('down')
+            print 'cant go down'
+
+    # want a list of our body items and others all together
+
 
 # ====================== GLOBALS ==========================
 
@@ -103,19 +162,48 @@ myID = ''
 height = 0 
 width = 0
 
-directions = ['up', 'down', 'left', 'right']
+directions = ['up', 'left', 'down', 'right']
 validDirections = []
 
 '''
 type can be body, head, food, or empty
-if type is snake or head, dict will also have an id field
+if type is body or head, dict will also have an id field
 
 ex - boardMao[0][0] = {'type' : head, id : '12412412310'}
 
 '''
-boardMap = [[0 for x in range(width)] for y in range(height)] 
+# boardMap = [[{'type': '', 'id' : ''} for x in range(width)] for y in range(height)] 
 
 
+# ======================= Build Table ============================
+'''
+def makeBoardMap(data):
+    
+    # empties
+    for x in range(width):
+        for y in range(height):
+            boardMap[x][y]['type'] = 'empty'
+
+    # food
+    for coord in data['board']['food']:
+        boardMap[coord['x']][coord['y']]['type'] = 'food'
+
+    # other snakes
+    for snake in data['board']['snakes']:
+        id = snake['id']
+        flag = True
+        for coord in snake[body]:
+            if(flag):
+                falg = False
+                boardMap[coord['x']][coord['y']]['type'] = 'head'
+            else:                            
+                boardMap[coord['x']][coord['y']]['type'] = 'body'            
+            boardMap[coord['x']][coord['y']]['id'] = id            
+
+    # my snake 
+    for coord in data['you'][body]:
+        boardMap[coord['x']][coord['y']]['type'] = 'you'
+'''
 
 # ======================= MOVE ============================
 
@@ -125,23 +213,26 @@ def move():
     data = bottle.request.json 
     you = data['you']
 
+    print 'turn {}'.format(data['turn']) 
     validDirections = directions[:] # reset on each turn
-    boardMap = [[0 for x in range(width)] for y in range(height)]
+    # boardMap = [[0 for x in range(width)] for y in range(height)]
 
-    elimRunoff(you['body'][0])
+    # makeBoardMap(data)
+
+    # elimRunoff(you['body'][0])
+    # elimBodyCollide(you['body'][0])
+    # elimBodyCollide(you['body'][0], data)
 
 
-    response = random.choice(validDirections)
 
-    # print data
-    # print data['turn']
 
-    """
-    TODO: Using the data from the endpoint request object, your
-            snake AI must choose a direction to move in.
-    
-    0,0 is top left
-    """
+
+    response = directions[(data['turn']/2) % 4]
+
+    # if len(validDirections) > 0:
+    #     response = random.choice(validDirections)
+    # else: 
+    #     response = 'down' #gg
 
     """
     Sanity TODO tasks
