@@ -30,8 +30,11 @@ def ping():
     """
     return ping_response()
 
+# ======================= START ============================
+
 @bottle.post('/start')
 def start():
+    print 'start received'
     data = bottle.request.json
 
     """
@@ -39,38 +42,142 @@ def start():
             initialize your snake state here using the
             request's data if necessary.
     """
-    print(json.dumps(data))
+    myID = data['you']['id']
+    gameID = data['game']['id']
+    height = data['board']['height']
+    width = data['board']['width'] 
 
-    color = "#00FF00"
+    print 'gameID: ', gameID
+    print 'myID: ', myID
+
+    color = "#FBE103"
 
     return start_response(color)
 
+# =================== GET JSON RESPONSE ====================
+
+def packageResponse(direction):
+    json = '{ "move" : "%s"}'%direction
+    print 'packaging {} as {}'.format(direction, json)
+    return json
+
+# ================== SIMPLE AVOID DEATH =====================
+
+'''
+Eliminates return values that would run us off the board
+'''
+def elimRunoff(headCoords):
+    # headCoords = (x,y)
+    print "HEAD COORDS: ", headCoords
+    x = headCoords['x']
+    y = headCoords['y']
+    if x == 0:
+        validDirections.remove('left')
+
+    if x == width-1 :
+        validDirections.remove('right')
+
+    if y == 0:
+        validDirections.remove('up')
+
+    if y == height-1:
+        validDirections.remove('down')
+
+'''
+TODO
+Eliminates return values that would run us into our own body
+or that of another snake
+'''
+def elimBodyCollide(snokes, yourBody, headCoords):
+    x = headCoords['x']
+    y = headCoords['y']
+
+    # check own body first
+    # for {bodyX, bodyY} in yourBody:
+
+# ====================== GLOBALS ==========================
+
+gameID = ''
+myID = ''
+
+height = 0 
+width = 0
+
+directions = ['up', 'down', 'left', 'right']
+validDirections = []
+
+'''
+type can be body, head, food, or empty
+if type is snake or head, dict will also have an id field
+
+ex - boardMao[0][0] = {'type' : head, id : '12412412310'}
+
+'''
+boardMap = [[0 for x in range(width)] for y in range(height)] 
+
+
+
+# ======================= MOVE ============================
 
 @bottle.post('/move')
 def move():
-    data = bottle.request.json
+    print 'move received'
+    data = bottle.request.json 
+    you = data['you']
+
+    validDirections = directions[:] # reset on each turn
+    boardMap = [[0 for x in range(width)] for y in range(height)]
+
+    elimRunoff(you['body'][0])
+
+
+    response = random.choice(validDirections)
+
+    # print data
+    # print data['turn']
 
     """
     TODO: Using the data from the endpoint request object, your
             snake AI must choose a direction to move in.
+    
+    0,0 is top left
     """
-    print(json.dumps(data))
 
-    directions = ['up', 'down', 'left', 'right']
-    direction = random.choice(directions)
+    """
+    Sanity TODO tasks
+    
+        Need a possible moves list that we can use before going on to anything more
+        complicated
 
-    return move_response(direction)
+    1. Package the following functions into one that is called at start
+       of move func to eliminate moves that would kill us.
+       Can add to this if we have time to try to look ahead at some
+       basic cases.
+    - Stay on the board
+    - Don't collide with your own body
+    - Don't collide with other snakes' bodies
+
+    2. Make sure you're getting food
+
+    3. Handle case of possible head-on collisions -> check if a given cell
+       is adjacent to another snake's head. Go there if all adjacent snake 
+       heads belong to smaller snakes, otherwise eliminate this as a possibility
+
+    """
+
+    return packageResponse(response)
 
 
 @bottle.post('/end')
 def end():
+    print 'end received'
     data = bottle.request.json
 
     """
     TODO: If your snake AI was stateful,
         clean up any stateful objects here.
     """
-    print(json.dumps(data))
+    # print(json.dumps(data))
 
     return end_response()
 
